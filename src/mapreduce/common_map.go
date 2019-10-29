@@ -2,6 +2,11 @@ package mapreduce
 
 import (
 	"hash/fnv"
+	"encoding/json"
+	"log"
+	"os"
+	"fmt"
+	"bufio"
 )
 
 // doMap manages one map task: it reads one of the input files
@@ -53,6 +58,43 @@ func doMap(
 	//
 	// Remember to close the file after you have written all the values!
 	//
+
+	debug("Map phase")
+
+	// create output files and encoders
+	outEncoders := []*json.Encoder{}
+	outFiles := []*os.File{}
+	for i := 0; i < nReduce; i++ {
+		file, err := os.Create(fmt.Sprintf("mrtmp.%s-%d-%d", jobName, mapTaskNumber, i))
+		if err != nil {
+			log.Fatal("Map: create ", err)
+		}
+		enc := json.NewEncoder(file)
+		outFiles = append(outFiles, file)
+		outEncoders = append(outEncoders, enc)
+	}
+
+	input, err := os.Open(inFile)
+	if err != nil {
+		log.Fatal("Map: open ", err)
+	}
+	inputScanner := bufio.NewScanner(input)
+	for inputScanner.Scan() {
+		line := inputScanner.Text()
+		kvs := mapF(inFile, line)
+		for _, kv := range kvs {
+			hashVal := ihash(kv.Key) % mapTaskNumber
+			outEncoders[hashVal].Encode(&kv)
+		}
+	}
+
+	// close output files
+	for _, file := range outFiles {
+		file.Close()
+	}
+
+	// close input file
+	input.Close()
 }
 
 func ihash(s string) int {
