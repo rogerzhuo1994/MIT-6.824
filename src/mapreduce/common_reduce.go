@@ -59,17 +59,20 @@ func doReduce(
 	rValMap := make(map[string][]string)
 
 	for i := 0; i < nMap; i++ {
-		input, err := os.Open(fmt.Sprintf("mrtmp-%s-%d-%d", jobName, i, reduceTaskNumber))
+		input, err := os.Open(fmt.Sprintf("mrtmp.%s-%d-%d", jobName, i, reduceTaskNumber))
 		if err != nil {
 			log.Fatal("Reduce: open")
 		}
 
 		inputDec := json.NewDecoder(input)
+		fmt.Println("Reduce: start reading map result")
 
 		for {
 			var kv KeyValue
+			//i := 0
+			//fmt.Println("Reduce: reading", i, "th result")
 			err := inputDec.Decode(&kv)
-			if err == nil {
+			if err != nil {
 				break
 			}
 			_, ok := rValMap[kv.Key]

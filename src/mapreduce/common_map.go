@@ -83,7 +83,7 @@ func doMap(
 		line := inputScanner.Text()
 		kvs := mapF(inFile, line)
 		for _, kv := range kvs {
-			hashVal := ihash(kv.Key) % mapTaskNumber
+			hashVal := ihash(kv.Key) % nReduce
 			outEncoders[hashVal].Encode(&kv)
 		}
 	}
