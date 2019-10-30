@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"mapreduce"
 	"os"
+	"regexp"
+	"log"
+	"strings"
+	"strconv"
 )
 
 //
@@ -14,7 +18,21 @@ import (
 // of key/value pairs.
 //
 func mapF(filename string, contents string) []mapreduce.KeyValue {
-	// TODO: you have to write this function
+	reg, err := regexp.Compile("[^a-z]+")
+	if err != nil {
+		log.Fatal("WC mapF: regex", err)
+	}
+	contents = reg.ReplaceAllString(strings.ToLower(contents), " ")
+	words := strings.Split(contents, " ")
+
+	res := []mapreduce.KeyValue{}
+	for _, word := range words {
+		if word == "" {
+			continue
+		}
+		res = append(res, mapreduce.KeyValue{word, ""})
+	}
+	return res
 }
 
 //
@@ -23,7 +41,7 @@ func mapF(filename string, contents string) []mapreduce.KeyValue {
 // any map task.
 //
 func reduceF(key string, values []string) string {
-	// TODO: you also have to write this function
+	return strconv.Itoa(len(values))
 }
 
 // Can be run in 3 ways:
