@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"mapreduce"
 	"os"
 	"regexp"
-	"log"
-	"strings"
 	"strconv"
+	"strings"
 )
 
 //
@@ -18,11 +18,11 @@ import (
 // of key/value pairs.
 //
 func mapF(filename string, contents string) []mapreduce.KeyValue {
-	reg, err := regexp.Compile("[^a-z]+")
+	reg, err := regexp.Compile("[^A-Za-z]+")
 	if err != nil {
 		log.Fatal("WC mapF: regex", err)
 	}
-	contents = reg.ReplaceAllString(strings.ToLower(contents), " ")
+	contents = reg.ReplaceAllString(contents, " ")
 	words := strings.Split(contents, " ")
 
 	res := []mapreduce.KeyValue{}
