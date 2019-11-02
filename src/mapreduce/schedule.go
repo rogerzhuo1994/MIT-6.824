@@ -2,7 +2,6 @@ package mapreduce
 
 import (
 	"fmt"
-	"log"
 )
 
 //
@@ -43,18 +42,33 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 	// Distribute tasks in parallel: go + DoTask
 	// Detect a task is finished: DoTask returns, use a channel to inform schedule()
 
-	worker := ""
 	taskFinished := 0
-	taskNumber := 0
+	taskPool := makeSequence(ntasks)
+	workerPool := []string{}
+
+	worker := ""
+	taskNumber := -1
+
 	workerFinishChan := make(chan string)
+	taskFailureChan := make(chan int)
 
 	for {
 		select {
+		case taskNumber = <-taskFailureChan:
+			fmt.Println("Schedule: task failed, ", taskNumber)
+			taskPool = append(taskPool, taskNumber)
+		default:
+		}
+
+		select {
 		case worker = <-registerChan:
 			fmt.Println("Schedule: newly registered worker found, ", worker)
+			workerPool = append(workerPool, worker)
 		case worker = <-workerFinishChan:
 			fmt.Println("Schedule: available worker found, ", worker)
+			workerPool = append(workerPool, worker)
 			taskFinished += 1
+		default:
 		}
 
 		// if all task is finished, end loop and return
@@ -62,24 +76,28 @@ func schedule(jobName string, mapFiles []string, nReduce int, phase jobPhase, re
 			break
 		}
 
-		// still tasks to assign
-		if taskNumber < ntasks {
+		// both worker and task are available
+		if len(taskPool) > 0 && len(workerPool) > 0{
 			file := ""
+			taskNumber = taskPool[0]
+			taskPool = taskPool[1:]
+			worker = workerPool[0]
+			workerPool = workerPool[1:]
+
 			switch phase {
 			case mapPhase:
 				file = mapFiles[taskNumber]
 			case reducePhase:
 				file = ""
 			}
-			go assignTask(jobName, worker, file, taskNumber, phase, n_other, workerFinishChan)
-			taskNumber += 1
+			go assignTask(jobName, worker, file, taskNumber, phase, n_other, workerFinishChan, taskFailureChan)
 		}
 	}
 
 	fmt.Printf("Schedule: %v phase done\n", phase)
 }
 
-func assignTask(jobName string, workerName string, file string, taskNumber int, phase jobPhase, numOtherPhase int, workerFinishChan chan string){
+func assignTask(jobName string, workerName string, file string, taskNumber int, phase jobPhase, numOtherPhase int, workerFinishChan chan string, taskFailureChan chan int){
 	args := DoTaskArgs{
 		JobName: jobName,
 		File: file,
@@ -91,8 +109,16 @@ func assignTask(jobName string, workerName string, file string, taskNumber int, 
 	ok := call(workerName, "Worker.DoTask", &args, nil)
 	if ok == false {
 		fmt.Printf("Schedule: assignTask RPC failed...\n")
-		log.Fatal("Schedule: assignTask RPC failed...\n")
+		taskFailureChan <- taskNumber
+	}else {
+		workerFinishChan <- workerName
 	}
+}
 
-	workerFinishChan <- workerName
+func makeSequence(n int) []int {
+	arr := []int{}
+	for i := 0; i < n; i++ {
+		arr = append(arr, i)
+	}
+	return arr
 }
